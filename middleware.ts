@@ -1,15 +1,78 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = new Set(["/login"]);
 const PUBLIC_PREFIXES = ["/i/", "/api/cover/"];
+const AUTH_ONLY_PATHS = new Set(["/pending", "/rejected"]);
+const AUTH_ONLY_PREFIXES = ["/api/auth/"];
+
+interface UserProfile {
+  role: string;
+  status: string;
+}
 
 function isPublicPath(pathname: string) {
-  if (PUBLIC_PATHS.has(pathname) || pathname.startsWith("/auth/")) {
+  if (pathname.startsWith("/auth/")) {
     return true;
   }
 
   return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
+
+function isAuthOnlyPath(pathname: string) {
+  if (AUTH_ONLY_PATHS.has(pathname)) {
+    return true;
+  }
+
+  return AUTH_ONLY_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
+
+function homePathForProfile(profile: UserProfile) {
+  if (profile.status === "pending") {
+    return "/pending";
+  }
+
+  if (profile.status === "rejected") {
+    return "/rejected";
+  }
+
+  return "/";
+}
+
+function redirectForProfile(pathname: string, profile: UserProfile, request: NextRequest) {
+  if (profile.status === "pending") {
+    if (!isAuthOnlyPath(pathname) && pathname !== "/auth/signout") {
+      return NextResponse.redirect(new URL("/pending", request.url));
+    }
+    return null;
+  }
+
+  if (profile.status === "rejected") {
+    if (pathname !== "/rejected" && pathname !== "/auth/signout") {
+      return NextResponse.redirect(new URL("/rejected", request.url));
+    }
+    return null;
+  }
+
+  if (profile.status === "approved") {
+    if (pathname === "/pending" || pathname === "/rejected") {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+  }
+
+  if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
+    if (profile.role !== "admin" || profile.status !== "approved") {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+  }
+
+  if (pathname.startsWith("/api/drops") && profile.status !== "approved") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  return null;
 }
 
 export async function middleware(request: NextRequest) {
@@ -45,12 +108,23 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  if (user && pathname === "/login") {
-    return NextResponse.redirect(new URL("/", request.url));
-  }
-
   if (isPublicPath(pathname)) {
     return supabaseResponse;
+  }
+
+  if (pathname === "/login") {
+    if (!user) {
+      return supabaseResponse;
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, status")
+      .eq("id", user.id)
+      .single();
+
+    const destination = profile ? homePathForProfile(profile) : "/pending";
+    return NextResponse.redirect(new URL(destination, request.url));
   }
 
   if (!user) {
@@ -61,6 +135,29 @@ export async function middleware(request: NextRequest) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, status")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile) {
+    if (pathname === "/pending" || pathname.startsWith("/api/auth/")) {
+      return supabaseResponse;
+    }
+
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 403 });
+    }
+
+    return NextResponse.redirect(new URL("/pending", request.url));
+  }
+
+  const profileRedirect = redirectForProfile(pathname, profile, request);
+  if (profileRedirect) {
+    return profileRedirect;
   }
 
   return supabaseResponse;

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireUser } from "@/lib/auth";
+import { requireApprovedUser } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { isValidDropId } from "@/lib/url";
 
@@ -7,9 +7,9 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const user = await requireUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireApprovedUser();
+  if (!auth) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { id } = await params;

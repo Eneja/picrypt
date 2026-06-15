@@ -6,10 +6,37 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/cn";
 import { createClient } from "@/lib/supabase/client";
+import type { ProfileStatus } from "@/lib/profile";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 type AuthMode = "signin" | "signup";
+
+async function redirectAfterAuth(
+  router: ReturnType<typeof useRouter>,
+  nextPath: string | null,
+) {
+  const syncResponse = await fetch("/api/auth/sync-profile", { method: "POST" });
+  if (!syncResponse.ok) {
+    router.push("/pending");
+    router.refresh();
+    return;
+  }
+
+  const data = (await syncResponse.json()) as {
+    profile?: { status: ProfileStatus };
+  };
+
+  if (data.profile?.status === "pending") {
+    router.push("/pending");
+  } else if (data.profile?.status === "rejected") {
+    router.push("/rejected");
+  } else {
+    router.push(nextPath ?? "/");
+  }
+
+  router.refresh();
+}
 
 export default function LoginForm() {
   const router = useRouter();
@@ -47,8 +74,7 @@ export default function LoginForm() {
         return;
       }
 
-      router.push(searchParams.get("next") ?? "/");
-      router.refresh();
+      await redirectAfterAuth(router, searchParams.get("next"));
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Authentication failed");
     } finally {
