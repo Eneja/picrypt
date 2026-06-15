@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/cn";
 import { customAlphabet } from "nanoid";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { encryptMessage } from "@/lib/crypto";
 import { buildShareUrl } from "@/lib/url";
 
@@ -37,6 +37,19 @@ export function ComposePanel() {
   const [createError, setCreateError] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const shareLinkRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!shareLink) {
+      return;
+    }
+
+    const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? "auto"
+      : "smooth";
+
+    shareLinkRef.current?.scrollIntoView({ behavior, block: "end" });
+  }, [shareLink]);
 
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault();
@@ -137,7 +150,8 @@ export function ComposePanel() {
       {createError ? <Alert variant="error">{createError}</Alert> : null}
 
       {shareLink ? (
-        <Card className="space-y-4 border-accent/20 bg-accent-soft p-5">
+        <div ref={shareLinkRef} className="scroll-mt-6">
+          <Card className="space-y-4 border-accent/20 bg-accent-soft p-5">
           <div className="space-y-1">
             <p className="text-sm font-medium text-foreground">Your link is ready</p>
             <p className="text-sm leading-relaxed text-muted">
@@ -163,6 +177,7 @@ export function ComposePanel() {
             </Button>
           </div>
         </Card>
+        </div>
       ) : null}
     </div>
   );
