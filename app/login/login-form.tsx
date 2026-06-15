@@ -4,9 +4,11 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { validateSignupEmail } from "@/lib/email-validation";
+import { PasswordInput } from "@/components/ui/password-input";
+import { validateEmailFormat, validateSignupEmail } from "@/lib/email-validation";
 import { cn } from "@/lib/cn";
 import { validatePersonName } from "@/lib/name-validation";
+import { validatePassword } from "@/lib/password-validation";
 import { createClient } from "@/lib/supabase/client";
 import type { ProfileStatus } from "@/lib/profile";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -63,12 +65,18 @@ export default function LoginForm() {
     const supabase = createClient();
 
     try {
-      if (mode === "signup") {
-        const emailError = validateSignupEmail(email);
-        if (emailError) {
-          throw new Error(emailError);
-        }
+      const emailError =
+        mode === "signup" ? validateSignupEmail(email) : validateEmailFormat(email);
+      if (emailError) {
+        throw new Error(emailError);
+      }
 
+      const passwordError = validatePassword(password);
+      if (passwordError) {
+        throw new Error(passwordError);
+      }
+
+      if (mode === "signup") {
         const firstNameError = validatePersonName(firstName, "First");
         if (firstNameError) {
           throw new Error(firstNameError);
@@ -145,7 +153,7 @@ export default function LoginForm() {
         ))}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         {mode === "signup" ? (
           <>
             <div className="space-y-2">
@@ -182,6 +190,7 @@ export default function LoginForm() {
           <Input
             id="email"
             type="email"
+            inputMode="email"
             autoComplete="email"
             required
             value={email}
@@ -196,15 +205,15 @@ export default function LoginForm() {
           <label htmlFor="password" className="text-sm font-medium text-foreground">
             Password
           </label>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             autoComplete={mode === "signin" ? "current-password" : "new-password"}
             required
             minLength={8}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
           />
+          <p className="text-xs text-muted">Must be at least 8 characters.</p>
         </div>
 
         <Button type="submit" isLoading={isLoading} className="w-full">

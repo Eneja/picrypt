@@ -57,8 +57,8 @@ export function isBlockedEmailDomain(email: string): boolean {
   return false;
 }
 
-export function validateSignupEmail(email: string): string | null {
-  const trimmed = email.trim().toLowerCase();
+export function validateEmailFormat(email: string): string | null {
+  const trimmed = email.trim();
   if (!trimmed) {
     return "Email is required.";
   }
@@ -66,6 +66,17 @@ export function validateSignupEmail(email: string): string | null {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
     return "Enter a valid email address.";
   }
+
+  return null;
+}
+
+export function validateSignupEmail(email: string): string | null {
+  const formatError = validateEmailFormat(email);
+  if (formatError) {
+    return formatError;
+  }
+
+  const trimmed = email.trim().toLowerCase();
 
   if (isBlockedEmailDomain(trimmed)) {
     return "Temporary or disposable email addresses are not allowed. Use a permanent email.";
