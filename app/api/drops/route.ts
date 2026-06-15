@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabase";
+import { requireUser } from "@/lib/auth";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { isValidDropId } from "@/lib/url";
 
 const MAX_PAYLOAD_LENGTH = 16 * 1024;
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/;
 
 export async function POST(request: Request) {
+  const user = await requireUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const { id, payload, expiresAt } = body;

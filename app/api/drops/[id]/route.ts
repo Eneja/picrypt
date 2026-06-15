@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabase";
+import { requireUser } from "@/lib/auth";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { isValidDropId } from "@/lib/url";
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const user = await requireUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { id } = await params;
 
   if (!isValidDropId(id)) {

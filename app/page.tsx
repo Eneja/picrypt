@@ -1,8 +1,9 @@
 "use client";
 
 import { customAlphabet } from "nanoid";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { decryptMessage, encryptMessage } from "@/lib/crypto";
+import { createClient } from "@/lib/supabase/client";
 import { buildShareUrl, parseShareUrl } from "@/lib/url";
 
 const generateDropId = customAlphabet(
@@ -30,6 +31,13 @@ export default function HomePage() {
   const [revealedMessage, setRevealedMessage] = useState("");
   const [unlockError, setUnlockError] = useState("");
   const [isUnlocking, setIsUnlocking] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    createClient()
+      .auth.getUser()
+      .then(({ data }) => setUserEmail(data.user?.email ?? null));
+  }, []);
 
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault();
@@ -54,6 +62,11 @@ export default function HomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, payload, expiresAt }),
       });
+
+      if (response.status === 401) {
+        window.location.href = "/login";
+        return;
+      }
 
       if (!response.ok) {
         const data = (await response.json()) as { error?: string };
@@ -94,6 +107,11 @@ export default function HomePage() {
     try {
       const response = await fetch(`/api/drops/${parsed.id}`);
 
+      if (response.status === 401) {
+        window.location.href = "/login";
+        return;
+      }
+
       if (response.status === 410) {
         throw new Error("This link has expired.");
       }
@@ -119,7 +137,22 @@ export default function HomePage() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-12 px-6 py-12">
       <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight">Picrypt</h1>
+        <div className="flex items-start justify-between gap-4">
+          <h1 className="text-3xl font-semibold tracking-tight">Picrypt</h1>
+          <div className="flex items-center gap-3 text-sm">
+            {userEmail ? (
+              <span className="text-neutral-600 dark:text-neutral-400">{userEmail}</span>
+            ) : null}
+            <form action="/auth/signout" method="post">
+              <button
+                type="submit"
+                className="rounded-lg border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
+              >
+                Sign out
+              </button>
+            </form>
+          </div>
+        </div>
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
           Encrypted links that look like photos. Share anywhere. Paste the full link here to
           read the message.
