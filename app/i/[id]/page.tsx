@@ -38,7 +38,7 @@ export default async function ImagePage({
   const appUrl = getAppUrl();
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-black">
+    <main className="flex min-h-screen items-center justify-center bg-[#0C0C0B]">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={`${appUrl}/api/cover/${id}`}
