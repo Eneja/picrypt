@@ -26,6 +26,41 @@ export async function listProfiles(): Promise<Profile[]> {
   return (data ?? []) as Profile[];
 }
 
+export async function countApprovedAdmins(): Promise<number> {
+  const supabase = getSupabaseAdmin();
+  const { count, error } = await supabase
+    .from("profiles")
+    .select("*", { count: "exact", head: true })
+    .eq("role", "admin")
+    .eq("status", "approved");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return count ?? 0;
+}
+
+export async function wouldRemoveLastAdmin(
+  userId: string,
+  updates: { status?: ProfileStatus; role?: ProfileRole },
+): Promise<boolean> {
+  const profile = await getProfileByUserId(userId);
+  if (!profile || profile.role !== "admin" || profile.status !== "approved") {
+    return false;
+  }
+
+  const removesAdmin =
+    updates.role === "user" || updates.status === "rejected" || updates.status === "pending";
+
+  if (!removesAdmin) {
+    return false;
+  }
+
+  const adminCount = await countApprovedAdmins();
+  return adminCount <= 1;
+}
+
 export async function updateProfileStatus(
   userId: string,
   status: ProfileStatus,

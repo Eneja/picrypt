@@ -1,5 +1,10 @@
 import { requireAdmin } from "@/lib/auth";
-import { updateProfileRole, updateProfileStatus } from "@/lib/profile-server";
+import {
+  getProfileByUserId,
+  updateProfileRole,
+  updateProfileStatus,
+  wouldRemoveLastAdmin,
+} from "@/lib/profile-server";
 import type { ProfileRole, ProfileStatus } from "@/lib/profile";
 import { NextResponse } from "next/server";
 
@@ -17,10 +22,6 @@ export async function PATCH(
 
   const { id } = await params;
 
-  if (id === admin.user.id) {
-    return NextResponse.json({ error: "You cannot modify your own account here" }, { status: 400 });
-  }
-
   try {
     const body = await request.json();
     const { status, role } = body as { status?: ProfileStatus; role?: ProfileRole };
@@ -35,6 +36,29 @@ export async function PATCH(
 
     if (!status && !role) {
       return NextResponse.json({ error: "No updates provided" }, { status: 400 });
+    }
+
+    if (id === admin.user.id) {
+      if (role === "user") {
+        return NextResponse.json(
+          { error: "You cannot remove your own admin access." },
+          { status: 400 },
+        );
+      }
+
+      return NextResponse.json({ error: "You cannot modify your own account here." }, { status: 400 });
+    }
+
+    if (await wouldRemoveLastAdmin(id, { status, role })) {
+      return NextResponse.json(
+        { error: "At least one admin account is required. Promote another admin first." },
+        { status: 400 },
+      );
+    }
+
+    const target = await getProfileByUserId(id);
+    if (!target) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     let profile = null;

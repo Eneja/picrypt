@@ -4,7 +4,9 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { isAdmin } from "@/lib/profile";
 import type { Profile, ProfileStatus } from "@/lib/profile";
+import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/cn";
 import { useEffect, useState } from "react";
 
@@ -79,6 +81,13 @@ export function AdminUserManagement() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    createClient()
+      .auth.getUser()
+      .then(({ data }) => setCurrentUserId(data.user?.id ?? null));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -171,6 +180,10 @@ export function AdminUserManagement() {
   const visibleProfiles =
     filter === "pending" ? profiles.filter((profile) => profile.status === "pending") : profiles;
 
+  const approvedAdminCount = profiles.filter(
+    (profile) => isAdmin(profile),
+  ).length;
+
   const dialogCopy = pendingAction ? actionCopy[pendingAction.action] : null;
 
   return (
@@ -212,14 +225,32 @@ export function AdminUserManagement() {
           </Card>
         ) : (
           <div className="space-y-3">
-            {visibleProfiles.map((profile) => (
+            {visibleProfiles.map((profile) => {
+              const isSelf = profile.id === currentUserId;
+              const isLastAdmin = isAdmin(profile) && approvedAdminCount <= 1;
+              const canRemoveAdmin = isAdmin(profile) && !isSelf && !isLastAdmin;
+              const canReject = profile.status !== "rejected" && !isSelf && !isLastAdmin;
+
+              return (
               <Card key={profile.id} className="space-y-4 p-4 sm:p-5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="space-y-1">
-                    <p className="font-medium text-foreground">{profile.email}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium text-foreground">{profile.email}</p>
+                      {isSelf ? (
+                        <span className="rounded-full bg-accent-soft px-2.5 py-0.5 text-xs font-medium text-foreground">
+                          You
+                        </span>
+                      ) : null}
+                    </div>
                     <p className="text-xs text-muted">
                       Joined {new Date(profile.created_at).toLocaleString()}
                     </p>
+                    {isSelf ? (
+                      <p className="text-xs text-muted">
+                        You cannot remove your own admin access.
+                      </p>
+                    ) : null}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <StatusBadge status={profile.status} />
@@ -230,7 +261,7 @@ export function AdminUserManagement() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  {profile.status !== "approved" ? (
+                  {!isSelf && profile.status !== "approved" ? (
                     <Button
                       type="button"
                       disabled={updatingId === profile.id}
@@ -239,7 +270,7 @@ export function AdminUserManagement() {
                       Approve
                     </Button>
                   ) : null}
-                  {profile.status !== "rejected" ? (
+                  {canReject ? (
                     <Button
                       type="button"
                       variant="secondary"
@@ -249,7 +280,7 @@ export function AdminUserManagement() {
                       Reject
                     </Button>
                   ) : null}
-                  {profile.status === "approved" && profile.role !== "admin" ? (
+                  {!isSelf && profile.status === "approved" && profile.role !== "admin" ? (
                     <Button
                       type="button"
                       variant="ghost"
@@ -259,7 +290,7 @@ export function AdminUserManagement() {
                       Make admin
                     </Button>
                   ) : null}
-                  {profile.role === "admin" && profile.status === "approved" ? (
+                  {canRemoveAdmin ? (
                     <Button
                       type="button"
                       variant="ghost"
@@ -271,7 +302,8 @@ export function AdminUserManagement() {
                   ) : null}
                 </div>
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
