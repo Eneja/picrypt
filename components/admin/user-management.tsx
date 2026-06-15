@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { isAdmin } from "@/lib/profile";
+import { getProfileDisplayName } from "@/lib/profile";
 import type { Profile, ProfileStatus } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/cn";
@@ -236,7 +237,7 @@ export function AdminUserManagement() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium text-foreground">{profile.email}</p>
+                      <p className="font-medium text-foreground">{getProfileDisplayName(profile)}</p>
                       {isSelf ? (
                         <span className="rounded-full bg-accent-soft px-2.5 py-0.5 text-xs font-medium text-foreground">
                           You
@@ -244,7 +245,7 @@ export function AdminUserManagement() {
                       ) : null}
                     </div>
                     <p className="text-xs text-muted">
-                      Joined {new Date(profile.created_at).toLocaleString()}
+                      {profile.email} · Joined {new Date(profile.created_at).toLocaleString()}
                     </p>
                     {isSelf ? (
                       <p className="text-xs text-muted">
@@ -317,7 +318,7 @@ export function AdminUserManagement() {
             }
           }}
           title={dialogCopy.title}
-          description={dialogCopy.description(pendingAction.profile.email)}
+          description={dialogCopy.description(getProfileDisplayName(pendingAction.profile))}
           confirmLabel={dialogCopy.confirmLabel}
           confirmVariant={dialogCopy.confirmVariant}
           isLoading={updatingId === pendingAction.profile.id}

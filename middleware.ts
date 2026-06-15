@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_PREFIXES = ["/i/", "/api/cover/"];
+const PUBLIC_API_PATHS = new Set(["/api/auth/signup"]);
 const AUTH_ONLY_PATHS = new Set(["/pending", "/rejected"]);
 const AUTH_ONLY_PREFIXES = ["/api/auth/"];
 
@@ -128,6 +129,10 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!user) {
+    if (PUBLIC_API_PATHS.has(pathname)) {
+      return supabaseResponse;
+    }
+
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

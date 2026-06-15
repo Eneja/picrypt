@@ -4,7 +4,9 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { validateSignupEmail } from "@/lib/email-validation";
 import { cn } from "@/lib/cn";
+import { validatePersonName } from "@/lib/name-validation";
 import { createClient } from "@/lib/supabase/client";
 import type { ProfileStatus } from "@/lib/profile";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -44,6 +46,8 @@ export default function LoginForm() {
   const authError = searchParams.get("error");
 
   const [mode, setMode] = useState<AuthMode>("signin");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(
@@ -59,19 +63,42 @@ export default function LoginForm() {
     const supabase = createClient();
 
     try {
-      const result =
-        mode === "signin"
-          ? await supabase.auth.signInWithPassword({ email, password })
-          : await supabase.auth.signUp({ email, password });
+      if (mode === "signup") {
+        const emailError = validateSignupEmail(email);
+        if (emailError) {
+          throw new Error(emailError);
+        }
 
-      if (result.error) {
-        throw result.error;
-      }
+        const firstNameError = validatePersonName(firstName, "First");
+        if (firstNameError) {
+          throw new Error(firstNameError);
+        }
 
-      if (mode === "signup" && !result.data.session) {
-        setError("Check your email to confirm your account, then sign in.");
-        setMode("signin");
-        return;
+        const lastNameError = validatePersonName(lastName, "Last");
+        if (lastNameError) {
+          throw new Error(lastNameError);
+        }
+
+        const signupResponse = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password, firstName, lastName }),
+        });
+
+        if (!signupResponse.ok) {
+          const data = (await signupResponse.json()) as { error?: string };
+          throw new Error(data.error ?? "Sign-up failed");
+        }
+
+        const signInResult = await supabase.auth.signInWithPassword({ email, password });
+        if (signInResult.error) {
+          throw signInResult.error;
+        }
+      } else {
+        const result = await supabase.auth.signInWithPassword({ email, password });
+        if (result.error) {
+          throw result.error;
+        }
       }
 
       await redirectAfterAuth(router, searchParams.get("next"));
@@ -89,7 +116,9 @@ export default function LoginForm() {
           Picrypt
         </h1>
         <p className="text-sm leading-relaxed text-muted">
-          Sign in to create and unlock encrypted links.
+          {mode === "signup"
+            ? "Create an account with your name and an email address."
+            : "Sign in with your email and password. Contact admin if you need assistance."}
         </p>
       </div>
 
@@ -117,6 +146,35 @@ export default function LoginForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {mode === "signup" ? (
+          <>
+            <div className="space-y-2">
+              <label htmlFor="first-name" className="text-sm font-medium text-foreground">
+                First name
+              </label>
+              <Input
+                id="first-name"
+                autoComplete="given-name"
+                required
+                value={firstName}
+                onChange={(event) => setFirstName(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="last-name" className="text-sm font-medium text-foreground">
+                Last name
+              </label>
+              <Input
+                id="last-name"
+                autoComplete="family-name"
+                required
+                value={lastName}
+                onChange={(event) => setLastName(event.target.value)}
+              />
+            </div>
+          </>
+        ) : null}
+
         <div className="space-y-2">
           <label htmlFor="email" className="text-sm font-medium text-foreground">
             Email
@@ -129,6 +187,9 @@ export default function LoginForm() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
           />
+          {mode === "signup" ? (
+            <p className="text-xs text-muted">Temporary or disposable email addresses are not allowed.</p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
