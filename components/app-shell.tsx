@@ -54,7 +54,7 @@ export function AppShell({ adminMode = false, children }: AppShellProps) {
             <p className="text-sm leading-relaxed text-muted">
               {adminMode
                 ? "Manage user access and approvals."
-                : "Encrypted links that look like photos."}
+                : "Built for when communication is difficult."}
             </p>
           </div>
 

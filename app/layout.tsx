@@ -22,7 +22,7 @@ const sourceSerif = Source_Serif_4({
 
 export const metadata: Metadata = {
   title: "Picrypt",
-  description: "Encrypted links that look like photos.",
+  description: "Built for when communication is difficult.",
 };
 
 const themeScript = `

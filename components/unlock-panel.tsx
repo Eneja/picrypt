@@ -15,6 +15,7 @@ export function UnlockPanel() {
   const [pasteUrl, setPasteUrl] = useState(() => loadDrafts()?.unlock?.pasteUrl ?? "");
   const [revealedMessage, setRevealedMessage] = useState("");
   const [unlockError, setUnlockError] = useState("");
+  const [urlInvalid, setUrlInvalid] = useState(false);
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [draftRestored] = useState(() => Boolean(loadDrafts()?.unlock?.pasteUrl));
 
@@ -28,11 +29,13 @@ export function UnlockPanel() {
   async function handleUnlock(event: React.FormEvent) {
     event.preventDefault();
     setUnlockError("");
+    setUrlInvalid(false);
     setRevealedMessage("");
 
     const parsed = parseShareUrl(pasteUrl);
     if (!parsed) {
       setUnlockError("Invalid Picrypt link. Paste the full URL including the part after #.");
+      setUrlInvalid(true);
       return;
     }
 
@@ -64,6 +67,7 @@ export function UnlockPanel() {
       } else {
         setUnlockError(error instanceof Error ? error.message : "Failed to unlock message");
       }
+      setUrlInvalid(true);
     } finally {
       setIsUnlocking(false);
     }
@@ -87,8 +91,14 @@ export function UnlockPanel() {
           </label>
           <Textarea
             id="paste-url"
+            invalid={urlInvalid}
             value={pasteUrl}
-            onChange={(event) => setPasteUrl(event.target.value)}
+            onChange={(event) => {
+              setPasteUrl(event.target.value);
+              if (urlInvalid) {
+                setUrlInvalid(false);
+              }
+            }}
             rows={2}
             placeholder="https://picrypt.app/i/..."
             className="font-mono text-base leading-normal"

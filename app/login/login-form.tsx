@@ -16,6 +16,37 @@ import { useState } from "react";
 
 type AuthMode = "signin" | "signup";
 
+type FieldName = "firstName" | "lastName" | "email" | "password";
+
+type FieldErrors = Partial<Record<FieldName, string>>;
+
+function mapErrorToFields(message: string, mode: AuthMode): FieldErrors {
+  const fieldErrors: FieldErrors = {};
+  const lowerMessage = message.toLowerCase();
+
+  if (lowerMessage.includes("first name")) {
+    fieldErrors.firstName = message;
+  }
+
+  if (lowerMessage.includes("last name")) {
+    fieldErrors.lastName = message;
+  }
+
+  if (lowerMessage.includes("email") || lowerMessage.includes("disposable")) {
+    fieldErrors.email = message;
+  }
+
+  if (lowerMessage.includes("password")) {
+    fieldErrors.password = message;
+  }
+
+  if (mode === "signin" && lowerMessage.includes("invalid login credentials")) {
+    return {};
+  }
+
+  return fieldErrors;
+}
+
 async function redirectAfterAuth(
   router: ReturnType<typeof useRouter>,
   nextPath: string | null,
@@ -52,41 +83,65 @@ export default function LoginForm() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [error, setError] = useState(
     authError === "auth" ? "Authentication failed. Try again." : "",
   );
   const [isLoading, setIsLoading] = useState(false);
 
+  function clearFieldError(field: FieldName) {
+    setFieldErrors((current) => {
+      if (!current[field]) {
+        return current;
+      }
+
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError("");
+    setFieldErrors({});
     setIsLoading(true);
 
     const supabase = createClient();
 
     try {
+      const nextFieldErrors: FieldErrors = {};
+
       const emailError =
         mode === "signup" ? validateSignupEmail(email) : validateEmailFormat(email);
       if (emailError) {
-        throw new Error(emailError);
+        nextFieldErrors.email = emailError;
       }
 
       const passwordError = validatePassword(password);
       if (passwordError) {
-        throw new Error(passwordError);
+        nextFieldErrors.password = passwordError;
       }
 
       if (mode === "signup") {
         const firstNameError = validatePersonName(firstName, "First");
         if (firstNameError) {
-          throw new Error(firstNameError);
+          nextFieldErrors.firstName = firstNameError;
         }
 
         const lastNameError = validatePersonName(lastName, "Last");
         if (lastNameError) {
-          throw new Error(lastNameError);
+          nextFieldErrors.lastName = lastNameError;
         }
+      }
 
+      if (Object.keys(nextFieldErrors).length > 0) {
+        const firstError = Object.values(nextFieldErrors)[0] ?? "Please fix the highlighted fields.";
+        setFieldErrors(nextFieldErrors);
+        throw new Error(firstError);
+      }
+
+      if (mode === "signup") {
         const signupResponse = await fetch("/api/auth/signup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -111,7 +166,15 @@ export default function LoginForm() {
 
       await redirectAfterAuth(router, searchParams.get("next"));
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Authentication failed");
+      const message =
+        submitError instanceof Error ? submitError.message : "Authentication failed";
+      setError(message);
+      setFieldErrors((current) => {
+        if (Object.keys(current).length > 0) {
+          return current;
+        }
+        return mapErrorToFields(message, mode);
+      });
     } finally {
       setIsLoading(false);
     }
@@ -140,7 +203,11 @@ export default function LoginForm() {
             key={option}
             type="button"
             aria-pressed={mode === option}
-            onClick={() => setMode(option)}
+            onClick={() => {
+              setMode(option);
+              setFieldErrors({});
+              setError("");
+            }}
             className={cn(
               "flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors motion-safe:duration-200",
               mode === option
@@ -164,8 +231,12 @@ export default function LoginForm() {
                 id="first-name"
                 autoComplete="given-name"
                 required
+                invalid={Boolean(fieldErrors.firstName)}
                 value={firstName}
-                onChange={(event) => setFirstName(event.target.value)}
+                onChange={(event) => {
+                  setFirstName(event.target.value);
+                  clearFieldError("firstName");
+                }}
               />
             </div>
             <div className="space-y-2">
@@ -176,8 +247,12 @@ export default function LoginForm() {
                 id="last-name"
                 autoComplete="family-name"
                 required
+                invalid={Boolean(fieldErrors.lastName)}
                 value={lastName}
-                onChange={(event) => setLastName(event.target.value)}
+                onChange={(event) => {
+                  setLastName(event.target.value);
+                  clearFieldError("lastName");
+                }}
               />
             </div>
           </>
@@ -193,8 +268,12 @@ export default function LoginForm() {
             inputMode="email"
             autoComplete="email"
             required
+            invalid={Boolean(fieldErrors.email)}
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            onChange={(event) => {
+              setEmail(event.target.value);
+              clearFieldError("email");
+            }}
           />
           {mode === "signup" ? (
             <p className="text-xs text-muted">Temporary or disposable email addresses are not allowed.</p>
@@ -210,8 +289,12 @@ export default function LoginForm() {
             autoComplete={mode === "signin" ? "current-password" : "new-password"}
             required
             minLength={8}
+            invalid={Boolean(fieldErrors.password)}
             value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            onChange={(event) => {
+              setPassword(event.target.value);
+              clearFieldError("password");
+            }}
           />
           <p className="text-xs text-muted">Must be at least 8 characters.</p>
         </div>

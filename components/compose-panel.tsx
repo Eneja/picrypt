@@ -38,6 +38,7 @@ export function ComposePanel() {
   );
   const [shareLink, setShareLink] = useState("");
   const [createError, setCreateError] = useState("");
+  const [messageInvalid, setMessageInvalid] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [draftRestored] = useState(() => Boolean(loadDrafts()?.compose));
@@ -65,11 +66,13 @@ export function ComposePanel() {
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault();
     setCreateError("");
+    setMessageInvalid(false);
     setShareLink("");
     setCopied(false);
 
     if (!message.trim()) {
       setCreateError("Enter a message to encrypt.");
+      setMessageInvalid(true);
       return;
     }
 
@@ -130,7 +133,13 @@ export function ComposePanel() {
         <MessageEditor
           id="message"
           value={message}
-          onChange={setMessage}
+          invalid={messageInvalid}
+          onChange={(value) => {
+            setMessage(value);
+            if (messageInvalid) {
+              setMessageInvalid(false);
+            }
+          }}
           placeholder="Write your message…"
         />
 

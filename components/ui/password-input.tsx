@@ -4,7 +4,9 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/cn";
 import { InputHTMLAttributes, forwardRef, useState } from "react";
 
-type PasswordInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type">;
+type PasswordInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & {
+  invalid?: boolean;
+};
 
 function EyeIcon() {
   return (
@@ -47,7 +49,7 @@ function EyeOffIcon() {
 }
 
 export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
-  ({ className, ...props }, ref) => {
+  ({ className, invalid, ...props }, ref) => {
     const [visible, setVisible] = useState(false);
 
     return (
@@ -55,6 +57,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
         <Input
           ref={ref}
           type={visible ? "text" : "password"}
+          invalid={invalid}
           className={cn("pr-11", className)}
           {...props}
         />
