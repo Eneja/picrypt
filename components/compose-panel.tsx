@@ -1,22 +1,22 @@
 "use client";
 
 import { MessageEditor } from "@/components/message-editor";
+import { useSessionDrafts } from "@/components/session-draft-provider";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/cn";
+import { encryptMessage } from "@/lib/crypto";
+import { clearComposeDraft, loadDrafts, type ExpiryPreset } from "@/lib/drafts";
+import { buildShareUrl } from "@/lib/url";
 import { customAlphabet } from "nanoid";
 import { useEffect, useRef, useState } from "react";
-import { encryptMessage } from "@/lib/crypto";
-import { buildShareUrl } from "@/lib/url";
 
 const generateDropId = customAlphabet(
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_",
   12,
 );
-
-type ExpiryPreset = "1" | "7" | "30";
 
 const expiryOptions: { value: ExpiryPreset; label: string }[] = [
   { value: "1", label: "1 day" },
@@ -31,13 +31,24 @@ function getExpiryDate(days: ExpiryPreset): string {
 }
 
 export function ComposePanel() {
-  const [message, setMessage] = useState("");
-  const [expiryDays, setExpiryDays] = useState<ExpiryPreset>("7");
+  const { registerCollector } = useSessionDrafts();
+  const [message, setMessage] = useState(() => loadDrafts()?.compose?.message ?? "");
+  const [expiryDays, setExpiryDays] = useState<ExpiryPreset>(
+    () => loadDrafts()?.compose?.expiryDays ?? "7",
+  );
   const [shareLink, setShareLink] = useState("");
   const [createError, setCreateError] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [draftRestored] = useState(() => Boolean(loadDrafts()?.compose));
   const shareLinkRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    return registerCollector("compose", {
+      getSnapshot: () => ({ message, expiryDays }),
+      hasUnsavedWork: () => message.trim().length > 0,
+    });
+  }, [message, expiryDays, registerCollector]);
 
   useEffect(() => {
     if (!shareLink) {
@@ -86,6 +97,7 @@ export function ComposePanel() {
       }
 
       setShareLink(buildShareUrl(id, key));
+      clearComposeDraft();
     } catch (error) {
       setCreateError(error instanceof Error ? error.message : "Failed to create link");
     } finally {
@@ -110,6 +122,10 @@ export function ComposePanel() {
       aria-labelledby="tab-compose"
       className="space-y-6 py-6"
     >
+      {draftRestored ? (
+        <Alert variant="info">Draft restored from your last saved session.</Alert>
+      ) : null}
+
       <form onSubmit={handleCreate} className="space-y-6">
         <MessageEditor
           id="message"

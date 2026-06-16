@@ -1,4 +1,6 @@
 import { ThemeProvider } from "@/components/theme-provider";
+import { SessionDraftProvider } from "@/components/session-draft-provider";
+import { SessionTimeoutProvider } from "@/components/session-timeout-provider";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
@@ -51,7 +53,11 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="flex min-h-full flex-col bg-background text-foreground">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <SessionDraftProvider>
+            <SessionTimeoutProvider>{children}</SessionTimeoutProvider>
+          </SessionDraftProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
